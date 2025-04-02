@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "main.js",
   "scripts": {
+    "dev": "electron .",
     "start": "electron-forge start",
     "test": "echo \"Error: no test specified\" && exit 1",
     "package": "electron-forge package",
@@ -13,11 +14,22 @@
   "description": "My own assistant",
   "devDependencies": {
     "@electron-forge/cli": "^7.8.0",
-    "electron": "^35.1.2"
+    "autoprefixer": "^10.4.21",
+    "electron": "^35.1.2",
+    "postcss-loader": "^8.1.1"
   },
   "dependencies": {
-    "@tailwindcss/cli": "^4.0.17",
+    "@electron-forge/maker-deb": "^7.8.0",
+    "@electron-forge/maker-rpm": "^7.8.0",
+    "@electron-forge/maker-squirrel": "^7.8.0",
+    "@electron-forge/maker-zip": "^7.8.0",
+    "@electron-forge/plugin-auto-unpack-natives": "^7.8.0",
+    "@electron-forge/plugin-fuses": "^7.8.0",
+    "@electron/remote": "^2.1.2",
+    "@tailwindcss/postcss": "^4.0.17",
     "electron-squirrel-startup": "^1.0.1",
+    "fs": "^0.0.1-security",
+    "postcss": "^8.5.3",
     "tailwindcss": "^4.0.17"
   }
 }

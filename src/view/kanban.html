@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <title>Ashisutanto</title>
+  </head>
+  <body class="bg-slate-700"> 
+    <div id="kanban" class="w-full flex h-full p-4"></div>
+    <div class="flex justify-end pr-2">
+      <div id="download-database"
+        class="w-48 border-2 rounded cursor-pointer text-center border-black bg-white text-black hover:bg-slate-900 hover:text-white hover:border-black"
+      >
+          Download database
+      </div>
+    </div>
+  </body>
+  <script async>
+    const loadData = async () => {
+      try {
+        const request = await fetch('../dataset/kanban.json')
+        const data = await request.json()
+        
+        buildKanban(data)
+      } catch (e) {
+        console.error(e)
+      }
+    }
+
+    const createTable = (table) => {
+      return `
+        <div id="table-${table.id}" class="card-handler w-96 h-200 border-2 border-white rounded bg-white/25 mx-4">
+          <div class="border-b-2 border-white mx-4 p-4 text-2xl text-white">${table.name}</div>
+          <div class="card-dropzone">
+            ${createCards(table.cards)}
+          </div>
+          <div class="flex justify-center mt-4">
+            <div data-id="${table.id}"
+                  class="add-task w-48 border-2 rounded cursor-pointer text-center border-white bg-white text-black hover:bg-slate-900 hover:text-white hover:border-black"
+            >
+              + Ajouté un tâche
+            </div>
+          </div>
+        </div>
+      `
+    }
+
+    const createCard = (card) => {
+      return `
+          <div draggable="true" id="card-${card.id}" class="card relative bg-white rounded p-4 mx-2 my-4 cursor-pointer">
+            <div data-id="${card.id}" class="delete-card text-red-500 absolute bold top-1 right-1">X</div>
+            <div>${card.name}</div>
+          </div>
+        `
+    }
+
+    const createCards = (cards) => {
+      let ret = ''
+
+      for (let i in cards)
+        ret += createCard(cards[i])
+
+      return ret
+    }
+
+    const displayCreateCardModal = (tableId) => {
+      const el = document.createElement('div')
+
+      el.innerHTML = `
+          <div id="create-card-modal" class="absolute top-0 bottom-0 left-0 right-0 bg-slate-900/50 flex justify-center items-center">
+            <div class="bg-white rounded w-96 h-96 flex justify-start flex-col p-4">
+              <div class="flex justify-start flex-col mb-4">
+                  <label class="text-xl bold">Nom</label>
+                  <input class="border-2 rounded border-slate" type="text" id="create-card-name"/>
+              </div>
+              <div class="flex justify-start flex-col mb-4">
+                  <label class="text-xl bold">Description</label>
+                  <textarea class="border-2 rounded border-slate" type="text" id="create-card-description"></textarea>
+              </div>
+              <div>
+                  <div
+                    id="create-card-button"
+                    class="add-task w-48 border-2 rounded cursor-pointer text-center border-black bg-white text-black hover:bg-slate-900 hover:text-white hover:border-black"
+                  >
+                    + Ajouté un tâche
+                  </div>
+              </div>
+            </div>
+          </div>
+        `
+
+      el.addEventListener('click', (evt) => {
+        if (evt.target.id === 'create-card-modal')
+          document.getElementById('create-card-modal').remove()
+      })
+
+      document.body.appendChild(el)
+
+      document.getElementById('create-card-button')
+            .addEventListener('click', async (evt) => {
+              try {
+                const name = document.getElementById('create-card-name').value
+                const description = document.getElementById('create-card-description').value
+                const request = await fetch('../dataset/kanban.json')
+                const data = await request.json()
+                let cardData = { name, description }
+
+                for (let i in data.tables)
+                  if (data.tables[i].id === tableId) {
+                    cardData = {
+                        ...cardData,
+                        id: data.tables[i].cards.length
+                    }
+                    data.tables[i].cards.push(cardData)
+                  }
+
+                
+                await window.electronAPI.saveFile('./src/dataset/kanban.json', JSON.stringify(data))
+
+                window.location.reload()
+              } catch (e) {
+                console.error(e)
+              }
+              
+              document.getElementById('create-card-modal').remove()
+            })
+    }
+
+    const displayShowCardModal = async (evt) => {
+      if (evt.target.classList.contains('delete-card')) return
+
+      const request = await fetch('../dataset/kanban.json')
+      const data = await request.json()
+      const el = document.createElement('div')
+      const target = evt.target.getAttribute('draggable') ? evt.target : evt.target.parentElement
+      const cardId = parseInt(target.getAttribute('id').split('-')[1])
+      let card = null
+      
+      for (let i in data.tables) {
+        for (let j in data.tables[i].cards) {
+          if (data.tables[i].cards[j].id === cardId)
+            card = data.tables[i].cards[j]
+        }
+      }
+
+      el.innerHTML = `
+          <div id="show-card-modal" class="absolute top-0 bottom-0 left-0 right-0 bg-slate-900/50 flex justify-center items-center">
+            <div class="bg-white rounded w-96 h-96 flex justify-start flex-col p-4 text-center">
+              <h3 class="text-xl bold">${card.name}</h3>
+              <p>${card.description}</p>
+            </div>
+          </div>
+        `
+
+      el.addEventListener('click', (evt) => {
+        if (evt.target.id === 'show-card-modal')
+          document.getElementById('show-card-modal').remove()
+      })
+
+      document.body.appendChild(el)
+    }
+
+    function eventCreateTask(evt) {
+      const tableId = evt.target.getAttribute('data-id')
+
+      displayCreateCardModal(parseInt(tableId))
+    }
+
+    async function eventDeleteCard(evt) {
+      if (!window.confirm('Supprimer ?')) return;
+
+      const cardId = parseInt(evt.target.getAttribute('data-id'))
+
+      try {
+        const request = await fetch('../dataset/kanban.json')
+        let data = await request.json()
+
+        data.tables = data.tables.map(t => ({
+          ...t,
+          cards: t.cards.filter(c => c.id !== cardId)
+        }))
+
+        await window.electronAPI.saveFile('./src/dataset/kanban.json', JSON.stringify(data))
+
+        window.location.reload()
+      } catch (e) {
+        console.error(e)
+      }
+    }
+
+    const bindEvents = () => {
+      const onCreateTask = document.getElementsByClassName('add-task')
+
+      for (let i = 0; i < onCreateTask.length; i++)
+        onCreateTask[i].addEventListener('click', eventCreateTask)
+
+      const onDeleteCard = document.getElementsByClassName('delete-card')
+
+      for (let i = 0; i < onDeleteCard.length; i++)
+        onDeleteCard[i].addEventListener('click', eventDeleteCard)
+
+      const onCard = document.getElementsByClassName('card')
+      let cardTransfer = null
+
+      for (let i = 0; i < onCard.length; i++) {
+        onCard[i].addEventListener('dragstart', (evt) => {
+          cardTransfer = evt.target
+        })
+
+        onCard[i].addEventListener('click', displayShowCardModal)
+      }
+
+      const cardDropzone = document.getElementsByClassName('card-handler')
+
+      for (let i = 0; i < cardDropzone.length; i++) {
+        cardDropzone[i].addEventListener('dragover', (e) => e.preventDefault())
+        cardDropzone[i].addEventListener('drop', async (evt) => {
+          evt.preventDefault()
+          let target = evt.target
+
+          while (!target.getAttribute('id') || !target.getAttribute('id').startsWith('table-'))
+            target = target.parentElement
+        
+          target.insertBefore(cardTransfer, target.firstChild.nextSibling.nextSibling)
+
+          try {
+            const request = await fetch('../dataset/kanban.json')
+            const data = await request.json()
+
+            const tableId = parseInt(target.getAttribute('id').split('-')[1])
+            const cardId = parseInt(cardTransfer.getAttribute('id').split('-')[1])
+            let card = null
+
+            console.log(data.tables)
+            data.tables = data.tables.map(t => ({
+              ...t,
+              cards: t.cards.map(c => {
+                if (c.id === cardId) {
+                  card = c
+                  return false
+                }
+
+                return c
+              }).filter(Boolean)
+            }))
+
+            for (let i in data.tables) {
+              if (data.tables[i].id === tableId)
+                data.tables[i].cards.push(card)
+            }
+            
+            await window.electronAPI.saveFile('./src/dataset/kanban.json', JSON.stringify(data))
+            window.location.reload()
+          } catch (e) {
+            console.error(e)
+          }
+        })
+      }
+    
+      const downloadButton = document.getElementById('download-database')
+
+      downloadButton.addEventListener('click', async () => {
+        const filePath = await window.electronAPI.openFile()
+        const request = await fetch('../dataset/kanban.json')
+        const data = await request.json()
+        await window.electronAPI.saveFile(filePath, JSON.stringify(data))
+      })
+    }
+    
+    const buildKanban = ({ tables }) => {
+      const container = document.getElementById('kanban')
+      let kanban = ''
+
+      for (let i in tables) {
+        kanban += createTable(tables[i])
+      }
+
+      container.innerHTML = kanban
+
+      bindEvents()
+    }
+
+    loadData()
+  </script>
+</html>
